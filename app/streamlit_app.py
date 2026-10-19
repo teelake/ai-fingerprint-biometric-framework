@@ -202,6 +202,15 @@ def read_upload(upload) -> np.ndarray | None:
     return image
 
 
+def person_id_from_filename(filename: str) -> str | None:
+    """Extract person ID from names like P001_RT_01.png → P001."""
+    stem = Path(filename).stem.strip()
+    if not stem:
+        return None
+    person_id = stem.split("_")[0].strip()
+    return person_id or None
+
+
 with st.sidebar:
     st.markdown(
         f"""
@@ -233,6 +242,7 @@ with st.sidebar:
 - Use a **sharp, well-lit** scan  
 - Prefer **PNG or JPG**  
 - Enroll first, then verify with the **same finger**  
+- Name files like **P001_RT_01.png** so Person ID fills in automatically  
 - If verify fails, lower **Match strictness** a little  
 - Pattern needs a **trained model** on the server
         """
@@ -256,21 +266,34 @@ tab_enroll, tab_verify, tab_pattern = st.tabs(["Enroll", "Verify", "Pattern"])
 
 with tab_enroll:
     st.subheader("Enroll a person")
-    c1, c2 = st.columns(2)
-    with c1:
-        person_id = st.text_input("Person ID", value="P001")
-    with c2:
-        tribe = st.selectbox(
-            "Tribe",
-            ["yoruba", "igbo", "hausa", "tiv", "kanuri", "fulani", "other"],
-        )
     upload = st.file_uploader(
         "Fingerprint image",
         type=["png", "jpg", "jpeg", "bmp"],
         key="enroll",
         label_visibility="collapsed",
     )
-    st.caption("Upload fingerprint (PNG / JPG / BMP)")
+    st.caption("Upload fingerprint (PNG / JPG / BMP). Example name: P001_RT_01.png")
+
+    detected_id = None
+    if upload is not None:
+        detected_id = person_id_from_filename(upload.name)
+        if detected_id and st.session_state.get("_last_enroll_file") != upload.name:
+            st.session_state["enroll_person_id"] = detected_id
+            st.session_state["_last_enroll_file"] = upload.name
+
+    if "enroll_person_id" not in st.session_state:
+        st.session_state["enroll_person_id"] = "P001"
+
+    c1, c2 = st.columns(2)
+    with c1:
+        person_id = st.text_input("Person ID", key="enroll_person_id")
+        if upload is not None and detected_id:
+            st.caption(f"Detected from filename: **{detected_id}** (editable)")
+    with c2:
+        tribe = st.selectbox(
+            "Tribe",
+            ["yoruba", "igbo", "hausa", "tiv", "kanuri", "fulani", "other"],
+        )
 
     if upload is not None:
         image = read_upload(upload)
