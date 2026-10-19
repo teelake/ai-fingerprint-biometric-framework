@@ -73,17 +73,29 @@ def enroll_person(
     model=None,
     device=None,
     db_path: Path = DB_PATH,
-) -> None:
+) -> dict:
+    """Enroll a fingerprint. Same person_id may hold multiple samples."""
     if model is None or device is None:
         model, device = load_model()
     init_db(db_path)
     emb = embed_image(model, device, image)
     with sqlite3.connect(db_path) as conn:
+        existing = conn.execute(
+            "SELECT COUNT(*) FROM enrollments WHERE person_id = ?",
+            (person_id,),
+        ).fetchone()[0]
         conn.execute(
             "INSERT INTO enrollments (person_id, tribe, embedding) VALUES (?, ?, ?)",
             (person_id, tribe, emb.tobytes()),
         )
         conn.commit()
+    sample_count = int(existing) + 1
+    return {
+        "person_id": person_id,
+        "tribe": tribe,
+        "already_existed": existing > 0,
+        "sample_count": sample_count,
+    }
 
 
 def _load_enrollments(db_path: Path = DB_PATH):

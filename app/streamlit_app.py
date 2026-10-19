@@ -308,12 +308,21 @@ with tab_enroll:
                 )
             with action:
                 if st.button("Enroll", type="primary", use_container_width=True):
-                    enroll_person(
+                    result = enroll_person(
                         person_id, tribe, image, model=model, device=device
                     )
-                    st.success(
-                        f"Enrolled **{person_id}** ({tribe}). Open **Verify** next."
-                    )
+                    if result["already_existed"]:
+                        st.info(
+                            f"**{person_id}** already exists. "
+                            f"Added another sample "
+                            f"(now {result['sample_count']} stored). "
+                            "Open **Verify** next."
+                        )
+                    else:
+                        st.success(
+                            f"Enrolled **{person_id}** ({tribe}). "
+                            "Open **Verify** next."
+                        )
 
 with tab_verify:
     st.subheader("Verify identity")
