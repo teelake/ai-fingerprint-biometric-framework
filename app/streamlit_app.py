@@ -24,6 +24,11 @@ COURSE_CODE = "CSC790"
 COURSE_TITLE = "Deep Learning"
 FACULTY = "Faculty of Computing"
 UNIVERSITY = "University of Ibadan"
+GITHUB_URL = "https://github.com/teelake/ai-fingerprint-biometric-framework"
+PROJECT_SHORT = (
+    "AI-Powered Fingerprint Biometric Framework for Individual "
+    "Identification and Security Monitoring in Nigeria"
+)
 
 st.set_page_config(
     page_title=f"{COURSE_CODE} Fingerprint Demo",
@@ -144,6 +149,39 @@ div[data-testid="stMetric"] {{
   line-height: 1.4;
 }}
 .app-footer .names {{ color: #222; }}
+
+.side-brand {{
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}}
+.side-mark {{
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: #1f4e79;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}}
+.side-brand-text {{
+  line-height: 1.25;
+}}
+.side-brand-text .uni {{
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: #111;
+}}
+.side-brand-text .fac {{
+  font-size: 0.75rem;
+  color: #555;
+}}
 </style>
 <div class="topbar">Fingerprint Biometric Demo<span>· {COURSE_CODE}: {COURSE_TITLE}</span></div>
 """,
@@ -165,8 +203,18 @@ def read_upload(upload) -> np.ndarray | None:
 
 
 with st.sidebar:
-    st.markdown(f"**{UNIVERSITY}**")
-    st.caption(f"{FACULTY}")
+    st.markdown(
+        f"""
+<div class="side-brand">
+  <div class="side-mark">UI</div>
+  <div class="side-brand-text">
+    <div class="uni">{UNIVERSITY}</div>
+    <div class="fac">{FACULTY}</div>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
     st.caption(f"{COURSE_CODE}: {COURSE_TITLE}")
     st.markdown("---")
 
@@ -189,6 +237,14 @@ with st.sidebar:
 - Pattern needs a **trained model** on the server
         """
     )
+
+    with st.expander("About this project"):
+        st.write(PROJECT_SHORT)
+        st.caption(
+            "CSC790 coursework demo: enroll fingerprints, verify identity, "
+            "and classify patterns (arch / loop / whorl)."
+        )
+        st.markdown(f"[View source on GitHub]({GITHUB_URL})")
 
     st.markdown("---")
     st.caption("Academic demo only — not for real security use.")
