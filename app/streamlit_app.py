@@ -197,9 +197,20 @@ def get_model():
 def read_upload(upload) -> np.ndarray | None:
     if upload is None:
         return None
-    file_bytes = np.asarray(bytearray(upload.read()), dtype=np.uint8)
-    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    return image
+    try:
+        upload.seek(0)
+        raw = upload.read()
+        if not raw:
+            return None
+        file_bytes = np.asarray(bytearray(raw), dtype=np.uint8)
+        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        if image is None or image.size == 0:
+            return None
+        if image.shape[0] < 8 or image.shape[1] < 8:
+            return None
+        return image
+    except Exception:
+        return None
 
 
 def person_id_from_filename(filename: str) -> str | None:
@@ -208,6 +219,9 @@ def person_id_from_filename(filename: str) -> str | None:
     if not stem:
         return None
     person_id = stem.split("_")[0].strip()
+    # Ignore useless defaults from generic camera names
+    if person_id.lower() in {"image", "img", "photo", "scan", "fingerprint", "download"}:
+        return None
     return person_id or None
 
 
@@ -298,7 +312,7 @@ with tab_enroll:
     if upload is not None:
         image = read_upload(upload)
         if image is None:
-            st.error("Could not read image.")
+            st.error("Could not read that file. Use a clear PNG, JPG, or BMP image.")
         else:
             prev, action = st.columns([1, 2])
             with prev:
@@ -308,21 +322,33 @@ with tab_enroll:
                 )
             with action:
                 if st.button("Enroll", type="primary", use_container_width=True):
-                    result = enroll_person(
-                        person_id, tribe, image, model=model, device=device
-                    )
-                    if result["already_existed"]:
-                        st.info(
-                            f"**{person_id}** already exists. "
-                            f"Added another sample "
-                            f"(now {result['sample_count']} stored). "
-                            "Open **Verify** next."
-                        )
+                    if not (person_id or "").strip():
+                        st.error("Enter a Person ID before enrolling.")
                     else:
-                        st.success(
-                            f"Enrolled **{person_id}** ({tribe}). "
-                            "Open **Verify** next."
-                        )
+                        try:
+                            result = enroll_person(
+                                person_id, tribe, image, model=model, device=device
+                            )
+                        except ValueError as exc:
+                            st.error(str(exc))
+                        else:
+                            if result["already_existed"]:
+                                st.info(
+                                    f"**{result['person_id']}** already exists. "
+                                    f"Added another sample "
+                                    f"(now {result['sample_count']} stored). "
+                                    "Open **Verify** next."
+                                )
+                            else:
+                                st.success(
+                                    f"Enrolled **{result['person_id']}** "
+                                    f"({result['tribe']}). Open **Verify** next."
+                                )
+                            if result.get("tribe_changed"):
+                                st.warning(
+                                    f"Tribe changed from **{result['previous_tribe']}** "
+                                    f"to **{result['tribe']}** for this Person ID."
+                                )
 
 with tab_verify:
     st.subheader("Verify identity")
@@ -338,7 +364,7 @@ with tab_verify:
     if upload is not None:
         image = read_upload(upload)
         if image is None:
-            st.error("Could not read image.")
+            st.error("Could not read that file. Use a clear PNG, JPG, or BMP image.")
         else:
             prev, action = st.columns([1, 2])
             with prev:
@@ -348,20 +374,29 @@ with tab_verify:
                 )
             with action:
                 if st.button("Verify", type="primary", use_container_width=True):
-                    result = verify(
-                        image, threshold=threshold, model=model, device=device
-                    )
-                    score = float(result.get("score", 0.0))
-                    if result.get("matched"):
-                        st.success(
-                            f"Match: **{result['person_id']}** "
-                            f"({result['tribe']}) · {score:.3f}"
+                    try:
+                        result = verify(
+                            image, threshold=threshold, model=model, device=device
                         )
+                    except ValueError as exc:
+                        st.error(str(exc))
                     else:
-                        st.warning(
-                            f"No match (score {score:.3f}). "
-                            "Enroll first or lower strictness."
-                        )
+                        if result.get("reason") == "no_enrollments":
+                            st.warning(
+                                "No one is enrolled yet. Go to **Enroll** first."
+                            )
+                        elif result.get("matched"):
+                            score = float(result["score"])
+                            st.success(
+                                f"Match: **{result['person_id']}** "
+                                f"({result['tribe']}) · {score:.3f}"
+                            )
+                        else:
+                            score = float(result.get("score") or 0.0)
+                            st.warning(
+                                f"No match (best score {score:.3f}). "
+                                "Try another scan or lower strictness."
+                            )
 
 with tab_pattern:
     st.subheader("Pattern classify")
@@ -380,26 +415,34 @@ with tab_pattern:
         if upload is not None:
             image = read_upload(upload)
             if image is None:
-                st.error("Could not read image.")
+                st.error(
+                    "Could not read that file. Use a clear PNG, JPG, or BMP image."
+                )
             else:
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                enhanced = enhance_fingerprint(gray)
-                left, right = st.columns(2)
-                with left:
-                    st.image(enhanced, caption="Enhanced", clamp=True, width=160)
-                with right:
-                    tensor = (
-                        torch.from_numpy(cv2.resize(enhanced, (224, 224)))
-                        .float()
-                        .unsqueeze(0)
-                        .unsqueeze(0)
-                        / 255.0
-                    )
-                    with torch.no_grad():
-                        logits = model(tensor.to(device))
-                        probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
-                    pred = PATTERN_CLASSES[int(probs.argmax())]
-                    st.success(f"**{pred}** ({float(probs.max()):.0%})")
+                try:
+                    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                    enhanced = enhance_fingerprint(gray)
+                except Exception:
+                    st.error("Could not process that fingerprint image.")
+                else:
+                    left, right = st.columns(2)
+                    with left:
+                        st.image(
+                            enhanced, caption="Enhanced", clamp=True, width=160
+                        )
+                    with right:
+                        tensor = (
+                            torch.from_numpy(cv2.resize(enhanced, (224, 224)))
+                            .float()
+                            .unsqueeze(0)
+                            .unsqueeze(0)
+                            / 255.0
+                        )
+                        with torch.no_grad():
+                            logits = model(tensor.to(device))
+                            probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
+                        pred = PATTERN_CLASSES[int(probs.argmax())]
+                        st.success(f"**{pred}** ({float(probs.max()):.0%})")
 
 st.markdown(
     f"""

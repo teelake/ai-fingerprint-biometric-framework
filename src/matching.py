@@ -14,9 +14,16 @@ from src.config import DB_PATH, IMAGE_SIZE, MODELS_DIR, PATTERN_CLASSES
 from src.model import FingerprintCNN
 from src.preprocess import enhance_fingerprint, resize_fingerprint
 
+# FingerprintCNN.features ends in 256-d AdaptiveAvgPool embedding
+EMBED_DIM = 256
+
 
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def normalize_person_id(person_id: str) -> str:
+    return (person_id or "").strip()
 
 
 def load_model(ckpt_path: Path | None = None):
@@ -31,10 +38,16 @@ def load_model(ckpt_path: Path | None = None):
 
 
 def image_to_tensor(image_bgr_or_gray: np.ndarray) -> torch.Tensor:
+    if image_bgr_or_gray is None or getattr(image_bgr_or_gray, "size", 0) == 0:
+        raise ValueError("Empty or invalid fingerprint image")
     if image_bgr_or_gray.ndim == 3:
         gray = cv2.cvtColor(image_bgr_or_gray, cv2.COLOR_BGR2GRAY)
-    else:
+    elif image_bgr_or_gray.ndim == 2:
         gray = image_bgr_or_gray
+    else:
+        raise ValueError("Fingerprint image must be grayscale or BGR")
+    if gray.shape[0] < 8 or gray.shape[1] < 8:
+        raise ValueError("Fingerprint image is too small")
     enhanced = enhance_fingerprint(gray)
     resized = resize_fingerprint(enhanced, IMAGE_SIZE)
     tensor = torch.from_numpy(resized).float().unsqueeze(0).unsqueeze(0) / 255.0
@@ -75,26 +88,41 @@ def enroll_person(
     db_path: Path = DB_PATH,
 ) -> dict:
     """Enroll a fingerprint. Same person_id may hold multiple samples."""
+    person_id = normalize_person_id(person_id)
+    if not person_id:
+        raise ValueError("Person ID is required")
+    if image is None or getattr(image, "size", 0) == 0:
+        raise ValueError("Fingerprint image is required")
+
+    tribe = (tribe or "other").strip().lower() or "other"
+
     if model is None or device is None:
         model, device = load_model()
     init_db(db_path)
     emb = embed_image(model, device, image)
+
     with sqlite3.connect(db_path) as conn:
-        existing = conn.execute(
-            "SELECT COUNT(*) FROM enrollments WHERE person_id = ?",
+        rows = conn.execute(
+            "SELECT tribe FROM enrollments WHERE person_id = ?",
             (person_id,),
-        ).fetchone()[0]
+        ).fetchall()
+        existing = len(rows)
+        previous_tribe = rows[0][0] if rows else None
+        tribe_changed = previous_tribe is not None and previous_tribe != tribe
+
         conn.execute(
             "INSERT INTO enrollments (person_id, tribe, embedding) VALUES (?, ?, ?)",
             (person_id, tribe, emb.tobytes()),
         )
         conn.commit()
-    sample_count = int(existing) + 1
+
     return {
         "person_id": person_id,
         "tribe": tribe,
         "already_existed": existing > 0,
-        "sample_count": sample_count,
+        "sample_count": existing + 1,
+        "tribe_changed": tribe_changed,
+        "previous_tribe": previous_tribe,
     }
 
 
@@ -106,7 +134,10 @@ def _load_enrollments(db_path: Path = DB_PATH):
         ).fetchall()
     records = []
     for person_id, tribe, blob in rows:
-        emb = np.frombuffer(blob, dtype=np.float32)
+        emb = np.frombuffer(blob, dtype=np.float32).copy()
+        if emb.size != EMBED_DIM:
+            # Skip corrupt / outdated rows instead of crashing verify
+            continue
         records.append((person_id, tribe, emb))
     return records
 
@@ -122,17 +153,33 @@ def verify(
     1:N identification against enrolled embeddings.
     Returns best match if cosine similarity >= threshold.
     """
+    if image is None or getattr(image, "size", 0) == 0:
+        raise ValueError("Fingerprint image is required")
+
+    threshold = float(threshold)
+    if not 0.0 <= threshold <= 1.0:
+        raise ValueError("Threshold must be between 0 and 1")
+
     if model is None or device is None:
         model, device = load_model()
     probe = embed_image(model, device, image)
     enrollments = _load_enrollments(db_path)
     if not enrollments:
-        return {"matched": False, "reason": "no_enrollments"}
+        return {
+            "matched": False,
+            "reason": "no_enrollments",
+            "person_id": None,
+            "tribe": None,
+            "score": None,
+            "threshold": threshold,
+        }
 
     best = None
     best_score = -1.0
     for person_id, tribe, emb in enrollments:
-        score = float(np.dot(probe, emb) / (np.linalg.norm(probe) * np.linalg.norm(emb) + 1e-8))
+        # Embeddings are L2-normalized at enroll time; still guard norms
+        denom = float(np.linalg.norm(probe) * np.linalg.norm(emb)) + 1e-8
+        score = float(np.dot(probe, emb) / denom)
         if score > best_score:
             best_score = score
             best = (person_id, tribe)
@@ -140,6 +187,7 @@ def verify(
     matched = best_score >= threshold
     return {
         "matched": matched,
+        "reason": "matched" if matched else "below_threshold",
         "person_id": best[0] if matched else None,
         "tribe": best[1] if matched else None,
         "score": best_score,
