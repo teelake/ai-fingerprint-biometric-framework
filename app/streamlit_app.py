@@ -36,49 +36,74 @@ st.markdown(
 <style>
 .stApp {{ background: #fff; color: #222; }}
 
-/* Title lives in Streamlit's top bar */
-header[data-testid="stHeader"] {{
+/* Fixed top bar (works on Streamlit Cloud) */
+.topbar {{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000000;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem 0 3.6rem;
   background: #fff;
   border-bottom: 1px solid #e5e5e5;
-  height: 3.2rem;
-}}
-header[data-testid="stHeader"]::before {{
-  content: "Fingerprint Biometric Demo  ·  {COURSE_CODE}: {COURSE_TITLE}";
-  position: absolute;
-  left: 3.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #111;
-  white-space: nowrap;
-  pointer-events: none;
+}}
+.topbar span {{
+  font-weight: 400;
+  color: #555;
+  margin-left: 0.45rem;
 }}
 
-#MainMenu {{ visibility: hidden; }}
-footer {{ visibility: hidden; }}
+header[data-testid="stHeader"] {{
+  background: transparent !important;
+  height: 44px;
+}}
+header[data-testid="stHeader"] * {{
+  color: transparent !important;
+}}
+
+#MainMenu, footer {{ visibility: hidden; }}
 div[data-testid="stToolbar"] {{ display: none; }}
 
 .block-container {{
-  padding-top: 0.6rem !important;
-  padding-bottom: 0.8rem !important;
-  max-width: 760px;
+  padding-top: 3.4rem !important;
+  padding-bottom: 0.6rem !important;
+  max-width: 640px;
 }}
 
-/* Compact spacing */
-div[data-testid="stVerticalBlock"] > div {{ gap: 0.45rem; }}
-h3 {{ margin: 0.15rem 0 0.35rem !important; font-size: 1.1rem !important; }}
-.stCaption {{ margin-top: -0.2rem !important; }}
+h3 {{
+  margin: 0 0 0.4rem !important;
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+}}
+
+/* Compact uploader */
+[data-testid="stFileUploader"] {{
+  padding: 0 !important;
+}}
+[data-testid="stFileUploader"] section {{
+  padding: 0.45rem 0.6rem !important;
+  min-height: unset !important;
+}}
+[data-testid="stFileUploader"] section > div {{ gap: 0.25rem !important; }}
+[data-testid="stFileUploaderDropzoneInstructions"] small {{
+  display: none !important;
+}}
 
 div[data-testid="stTabs"] [data-baseweb="tab-list"] {{
   border-bottom: 1px solid #ddd;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
 }}
 div[data-testid="stTabs"] [data-baseweb="tab"] {{
   font-weight: 500;
   color: #555;
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
 }}
 div[data-testid="stTabs"] [aria-selected="true"] {{
   color: #111 !important;
@@ -91,7 +116,7 @@ div[data-testid="stTabs"] [aria-selected="true"] {{
   border: none !important;
   border-radius: 4px !important;
   font-weight: 500 !important;
-  min-height: 2.2rem;
+  min-height: 2.1rem;
 }}
 .stButton > button:hover {{ background: #163a5c !important; }}
 
@@ -100,19 +125,27 @@ section[data-testid="stSidebar"] {{
   border-right: 1px solid #e5e5e5;
 }}
 section[data-testid="stSidebar"] .block-container {{
-  padding-top: 1rem !important;
+  padding-top: 3.6rem !important;
+}}
+
+div[data-testid="stMetric"] {{
+  background: #f6f7f8;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
 }}
 
 .app-footer {{
-  margin-top: 0.7rem;
-  padding-top: 0.55rem;
+  margin-top: 0.8rem;
+  padding-top: 0.5rem;
   border-top: 1px solid #ddd;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: #666;
   line-height: 1.4;
 }}
 .app-footer .names {{ color: #222; }}
 </style>
+<div class="topbar">Fingerprint Biometric Demo<span>· {COURSE_CODE}: {COURSE_TITLE}</span></div>
 """,
     unsafe_allow_html=True,
 )
@@ -140,12 +173,7 @@ with st.sidebar:
 3. **Pattern** — arch / loop / whorl
         """
     )
-    st.caption("Use a clear PNG or JPG scan.")
-    st.markdown("---")
-    st.caption(f"{UNIVERSITY}")
-    st.caption(FACULTY)
-    st.caption(f"{STUDENT_1}")
-    st.caption(f"{STUDENT_2}")
+    st.caption("Use a clear PNG or JPG.")
 
 init_db()
 model, device = get_model()
@@ -157,57 +185,62 @@ with tab_enroll:
     c1, c2 = st.columns(2)
     with c1:
         person_id = st.text_input("Person ID", value="P001")
+    with c2:
         tribe = st.selectbox(
             "Tribe",
             ["yoruba", "igbo", "hausa", "tiv", "kanuri", "fulani", "other"],
         )
-        upload = st.file_uploader(
-            "Fingerprint image",
-            type=["png", "jpg", "jpeg", "bmp"],
-            key="enroll",
-        )
-    with c2:
-        if upload is None:
-            st.caption("Preview appears here after upload.")
+    upload = st.file_uploader(
+        "Fingerprint image",
+        type=["png", "jpg", "jpeg", "bmp"],
+        key="enroll",
+        label_visibility="collapsed",
+    )
+    st.caption("Upload fingerprint (PNG / JPG / BMP)")
+
+    if upload is not None:
+        image = read_upload(upload)
+        if image is None:
+            st.error("Could not read image.")
         else:
-            image = read_upload(upload)
-            if image is None:
-                st.error("Could not read image.")
-            else:
+            prev, action = st.columns([1, 2])
+            with prev:
                 st.image(
                     cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
-                    caption="Preview",
-                    width=180,
+                    width=140,
                 )
+            with action:
                 if st.button("Enroll", type="primary", use_container_width=True):
                     enroll_person(
                         person_id, tribe, image, model=model, device=device
                     )
-                    st.success(f"Enrolled **{person_id}** ({tribe}). Open **Verify** next.")
+                    st.success(
+                        f"Enrolled **{person_id}** ({tribe}). Open **Verify** next."
+                    )
 
 with tab_verify:
     st.subheader("Verify identity")
-    c1, c2 = st.columns(2)
-    with c1:
-        threshold = st.slider("Match strictness", 0.50, 0.95, 0.75, 0.01)
-        upload = st.file_uploader(
-            "Fingerprint image",
-            type=["png", "jpg", "jpeg", "bmp"],
-            key="verify",
-        )
-    with c2:
-        if upload is None:
-            st.caption("Preview appears here after upload.")
+    threshold = st.slider("Match strictness", 0.50, 0.95, 0.75, 0.01)
+    upload = st.file_uploader(
+        "Fingerprint image",
+        type=["png", "jpg", "jpeg", "bmp"],
+        key="verify",
+        label_visibility="collapsed",
+    )
+    st.caption("Upload fingerprint to verify")
+
+    if upload is not None:
+        image = read_upload(upload)
+        if image is None:
+            st.error("Could not read image.")
         else:
-            image = read_upload(upload)
-            if image is None:
-                st.error("Could not read image.")
-            else:
+            prev, action = st.columns([1, 2])
+            with prev:
                 st.image(
                     cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
-                    caption="Preview",
-                    width=180,
+                    width=140,
                 )
+            with action:
                 if st.button("Verify", type="primary", use_container_width=True):
                     result = verify(
                         image, threshold=threshold, model=model, device=device
@@ -215,10 +248,14 @@ with tab_verify:
                     score = float(result.get("score", 0.0))
                     if result.get("matched"):
                         st.success(
-                            f"Match: **{result['person_id']}** ({result['tribe']}) · {score:.3f}"
+                            f"Match: **{result['person_id']}** "
+                            f"({result['tribe']}) · {score:.3f}"
                         )
                     else:
-                        st.warning(f"No match (score {score:.3f}). Try Enroll first or lower strictness.")
+                        st.warning(
+                            f"No match (score {score:.3f}). "
+                            "Enroll first or lower strictness."
+                        )
 
 with tab_pattern:
     st.subheader("Pattern classify")
@@ -227,22 +264,24 @@ with tab_pattern:
         st.info("Model not uploaded yet. Train locally, then redeploy.")
         st.code("python -m src.train --epochs 20", language="bash")
     else:
-        c1, c2 = st.columns(2)
-        with c1:
-            upload = st.file_uploader(
-                "Fingerprint image",
-                type=["png", "jpg", "jpeg", "bmp"],
-                key="pattern",
-            )
-        with c2:
-            if upload is not None:
-                image = read_upload(upload)
-                if image is None:
-                    st.error("Could not read image.")
-                else:
-                    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                    enhanced = enhance_fingerprint(gray)
-                    st.image(enhanced, caption="Enhanced", clamp=True, width=180)
+        upload = st.file_uploader(
+            "Fingerprint image",
+            type=["png", "jpg", "jpeg", "bmp"],
+            key="pattern",
+            label_visibility="collapsed",
+        )
+        st.caption("Upload fingerprint to classify")
+        if upload is not None:
+            image = read_upload(upload)
+            if image is None:
+                st.error("Could not read image.")
+            else:
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                enhanced = enhance_fingerprint(gray)
+                left, right = st.columns(2)
+                with left:
+                    st.image(enhanced, caption="Enhanced", clamp=True, width=160)
+                with right:
                     tensor = (
                         torch.from_numpy(cv2.resize(enhanced, (224, 224)))
                         .float()
