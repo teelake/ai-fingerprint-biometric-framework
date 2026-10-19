@@ -165,6 +165,11 @@ def read_upload(upload) -> np.ndarray | None:
 
 
 with st.sidebar:
+    st.markdown(f"**{UNIVERSITY}**")
+    st.caption(f"{FACULTY}")
+    st.caption(f"{COURSE_CODE}: {COURSE_TITLE}")
+    st.markdown("---")
+
     st.markdown("**Quick guide**")
     st.markdown(
         """
@@ -173,7 +178,20 @@ with st.sidebar:
 3. **Pattern** — arch / loop / whorl
         """
     )
-    st.caption("Use a clear PNG or JPG.")
+
+    st.markdown("**Helpful tips**")
+    st.markdown(
+        """
+- Use a **sharp, well-lit** scan  
+- Prefer **PNG or JPG**  
+- Enroll first, then verify with the **same finger**  
+- If verify fails, lower **Match strictness** a little  
+- Pattern needs a **trained model** on the server
+        """
+    )
+
+    st.markdown("---")
+    st.caption("Academic demo only — not for real security use.")
 
 init_db()
 model, device = get_model()
