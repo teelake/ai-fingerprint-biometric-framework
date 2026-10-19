@@ -18,236 +18,141 @@ from src.config import MODELS_DIR, PATTERN_CLASSES
 from src.matching import enroll_person, init_db, load_model, verify
 from src.preprocess import enhance_fingerprint
 
-# --- Academic credits (edit these) ---
-STUDENT_1 = "Your Full Name"
-STUDENT_2 = "Teammate Full Name"
+STUDENT_1 = "Oluwatobi Peter Alake"
+STUDENT_2 = "Tiwalayomi Aladesuyi"
 COURSE_CODE = "CSC790"
 COURSE_TITLE = "Deep Learning"
 FACULTY = "Faculty of Computing"
 UNIVERSITY = "University of Ibadan"
-PROJECT_TITLE = (
-    "AI-Powered Fingerprint Biometric Framework for "
-    "Individual Identification and Security Monitoring in Nigeria"
-)
 
 st.set_page_config(
-    page_title=f"{COURSE_CODE} · Fingerprint Biometrics",
-    page_icon="🔏",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+    page_title=f"{COURSE_CODE} Fingerprint Demo",
+    layout="centered",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=DM+Sans:wght@400;500;600;700&display=swap');
-
-:root {
-  --ui-navy: #0b2a4a;
-  --ui-navy-deep: #071e36;
-  --ui-gold: #c9a227;
-  --ui-gold-soft: #f3e8c0;
-  --ui-cream: #f7f4ef;
-  --ui-ink: #1a2332;
-  --ui-muted: #5c6b7a;
-  --ui-line: #d9e0e8;
-  --ui-success: #1f6b4a;
-}
-
-html, body, [class*="css"] {
-  font-family: "DM Sans", sans-serif;
-  color: var(--ui-ink);
-}
-
+/* Quiet institutional UI — no decorative gradients or display fonts */
 .stApp {
-  background:
-    radial-gradient(1200px 500px at 10% -10%, #e8eef5 0%, transparent 55%),
-    radial-gradient(900px 400px at 100% 0%, #f3e8c0 0%, transparent 45%),
-    linear-gradient(180deg, #fbfaf7 0%, var(--ui-cream) 100%);
+  background: #ffffff;
+  color: #222;
 }
 
 header[data-testid="stHeader"] {
-  background: transparent;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e5e5;
 }
 
-#MainMenu, footer { visibility: hidden; }
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
 div[data-testid="stToolbar"] { display: none; }
 
 .block-container {
-  padding-top: 1.2rem !important;
+  padding-top: 1.5rem !important;
   padding-bottom: 2rem !important;
-  max-width: 980px;
+  max-width: 740px;
 }
 
-.brand-bar {
-  background: linear-gradient(135deg, var(--ui-navy-deep) 0%, var(--ui-navy) 55%, #163a5f 100%);
-  color: #fff;
-  border-radius: 16px;
-  padding: 1.35rem 1.6rem 1.2rem;
-  border: 1px solid rgba(201, 162, 39, 0.35);
-  box-shadow: 0 10px 30px rgba(7, 30, 54, 0.18);
+.site-header {
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.9rem;
   margin-bottom: 1.1rem;
 }
 
-.brand-kicker {
-  display: inline-block;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ui-gold-soft);
-  font-weight: 600;
+.site-header .uni {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #555;
+  letter-spacing: 0.02em;
+}
+
+.site-header h1 {
+  margin: 0.25rem 0 0.15rem;
+  font-size: 1.45rem;
+  font-weight: 650;
+  color: #111;
+  line-height: 1.3;
+}
+
+.site-header .course {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.help-box {
+  background: #f6f7f8;
+  border: 1px solid #e2e4e7;
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+  margin: 0.75rem 0 1rem;
+  font-size: 0.9rem;
+  color: #333;
+  line-height: 1.45;
+}
+
+.help-box strong { color: #111; }
+
+.step {
+  color: #666;
+  font-size: 0.82rem;
   margin-bottom: 0.35rem;
-}
-
-.brand-uni {
-  font-family: "Source Serif 4", Georgia, serif;
-  font-size: 1.55rem;
-  font-weight: 700;
-  line-height: 1.2;
-  margin: 0;
-}
-
-.brand-faculty {
-  margin: 0.25rem 0 0.85rem;
-  color: #c5d3e2;
-  font-size: 0.95rem;
-}
-
-.brand-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.meta-pill {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(201, 162, 39, 0.45);
-  color: #f7f4ef;
-  border-radius: 999px;
-  padding: 0.28rem 0.75rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-}
-
-.hero-card {
-  background: rgba(255,255,255,0.78);
-  border: 1px solid var(--ui-line);
-  border-radius: 14px;
-  padding: 1.1rem 1.25rem;
-  margin-bottom: 1.1rem;
-}
-
-.hero-card h2 {
-  font-family: "Source Serif 4", Georgia, serif;
-  font-size: 1.35rem;
-  margin: 0 0 0.45rem;
-  color: var(--ui-navy);
-  line-height: 1.35;
-}
-
-.hero-card p {
-  margin: 0;
-  color: var(--ui-muted);
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.panel {
-  background: rgba(255,255,255,0.88);
-  border: 1px solid var(--ui-line);
-  border-radius: 14px;
-  padding: 0.35rem 1rem 1rem;
-}
-
-div[data-testid="stTabs"] [data-baseweb="tab-list"] {
-  gap: 0.35rem;
-  background: transparent;
-  border-bottom: 1px solid var(--ui-line);
-}
-
-div[data-testid="stTabs"] [data-baseweb="tab"] {
-  background: transparent;
-  border-radius: 8px 8px 0 0;
-  color: var(--ui-muted);
-  font-weight: 600;
-}
-
-div[data-testid="stTabs"] [aria-selected="true"] {
-  color: var(--ui-navy) !important;
-  border-bottom: 3px solid var(--ui-gold) !important;
-}
-
-.stButton > button {
-  background: var(--ui-navy) !important;
-  color: #fff !important;
-  border: 1px solid var(--ui-navy) !important;
-  border-radius: 10px !important;
-  font-weight: 600 !important;
-  padding: 0.45rem 1.1rem !important;
-}
-
-.stButton > button:hover {
-  background: #163a5f !important;
-  border-color: var(--ui-gold) !important;
 }
 
 .app-footer {
-  margin-top: 1.6rem;
-  padding: 1rem 1.2rem;
-  border-top: 2px solid var(--ui-gold);
-  background: linear-gradient(180deg, rgba(11,42,74,0.04), rgba(11,42,74,0.08));
-  border-radius: 0 0 12px 12px;
-  text-align: center;
-}
-
-.app-footer .footer-title {
-  font-family: "Source Serif 4", Georgia, serif;
-  color: var(--ui-navy);
-  font-weight: 700;
-  margin-bottom: 0.35rem;
-}
-
-.app-footer .footer-line {
-  color: var(--ui-muted);
-  font-size: 0.88rem;
-  margin: 0.15rem 0;
+  margin-top: 2rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #ddd;
+  font-size: 0.85rem;
+  color: #555;
+  line-height: 1.55;
 }
 
 .app-footer .names {
-  color: var(--ui-navy);
-  font-weight: 600;
-  margin-top: 0.45rem;
+  color: #222;
+  margin-top: 0.35rem;
+}
+
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+  gap: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+div[data-testid="stTabs"] [data-baseweb="tab"] {
+  font-weight: 500;
+  color: #555;
+}
+
+div[data-testid="stTabs"] [aria-selected="true"] {
+  color: #111 !important;
+  border-bottom: 2px solid #1f4e79 !important;
+}
+
+.stButton > button {
+  background: #1f4e79 !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  min-height: 2.4rem;
+}
+
+.stButton > button:hover {
+  background: #163a5c !important;
+}
+
+.stButton > button:disabled {
+  background: #9aa8b5 !important;
+  color: #fff !important;
+}
+
+section[data-testid="stSidebar"] {
+  background: #f8f9fa;
+  border-right: 1px solid #e5e5e5;
 }
 </style>
-""",
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    f"""
-<div class="brand-bar">
-  <div class="brand-kicker">{FACULTY}</div>
-  <p class="brand-uni">{UNIVERSITY}</p>
-  <p class="brand-faculty">Department of Computer Science · M.Sc. Artificial Intelligence</p>
-  <div class="brand-meta">
-    <span class="meta-pill">{COURSE_CODE} · {COURSE_TITLE}</span>
-    <span class="meta-pill">Topic 7 · Fingerprint Biometrics</span>
-    <span class="meta-pill">Nigeria Context Demo</span>
-  </div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    f"""
-<div class="hero-card">
-  <h2>{PROJECT_TITLE}</h2>
-  <p>
-    Prototype demo for enrollment, identity verification, and fingerprint pattern
-    classification (arch / loop / whorl) using a convolutional neural network.
-  </p>
-</div>
 """,
     unsafe_allow_html=True,
 )
@@ -266,124 +171,228 @@ def read_upload(upload) -> np.ndarray | None:
     return image
 
 
+def show_preview(image: np.ndarray, caption: str = "Uploaded fingerprint") -> None:
+    preview = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    st.image(preview, caption=caption, width=220)
+
+
+with st.sidebar:
+    st.markdown(f"**{UNIVERSITY}**")
+    st.caption(FACULTY)
+    st.markdown("---")
+    st.markdown("### How to use")
+    st.markdown(
+        """
+1. Open **Enroll** and upload a clear fingerprint image.  
+2. Enter a Person ID and tribe, then click **Enroll**.  
+3. Open **Verify**, upload a fingerprint, and click **Verify**.  
+4. Use **Pattern** after the model has been trained.
+        """
+    )
+    st.markdown("---")
+    st.markdown("### Tips for good results")
+    st.markdown(
+        """
+- Use a sharp, well-lit scan  
+- Prefer grayscale or high-contrast prints  
+- Same finger works best for enroll → verify  
+- PNG or JPG is fine
+        """
+    )
+    st.markdown("---")
+    st.caption(f"{COURSE_CODE}: {COURSE_TITLE}")
+    st.caption("Academic demo only — not for real security use.")
+
+st.markdown(
+    f"""
+<div class="site-header">
+  <p class="uni">{UNIVERSITY} · {FACULTY}</p>
+  <h1>Fingerprint Biometric Demo</h1>
+  <p class="course">{COURSE_CODE}: {COURSE_TITLE}</p>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+<div class="help-box">
+  <strong>What this app does:</strong>
+  enroll people from fingerprint images, check if a new scan matches someone already enrolled,
+  and (when a trained model is available) classify the print as arch, loop, or whorl.
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
 init_db()
 model, device = get_model()
 
-st.markdown('<div class="panel">', unsafe_allow_html=True)
 tab_enroll, tab_verify, tab_pattern = st.tabs(
-    ["Enroll", "Verify / Identify", "Pattern classify"]
+    ["1. Enroll", "2. Verify", "3. Pattern"]
 )
 
 with tab_enroll:
+    st.markdown('<p class="step">Step 1 of 3</p>', unsafe_allow_html=True)
     st.subheader("Enroll a person")
-    st.caption("Register a fingerprint embedding against a person ID and tribe label.")
-    c1, c2 = st.columns(2)
-    with c1:
-        person_id = st.text_input("Person ID", value="P001")
-    with c2:
-        tribe = st.selectbox(
-            "Tribe",
-            ["yoruba", "igbo", "hausa", "tiv", "kanuri", "fulani", "other"],
-        )
+    st.write("Save a fingerprint so the person can be recognized later.")
+
+    person_id = st.text_input(
+        "Person ID",
+        value="P001",
+        help="A short code for this person, e.g. P001.",
+    )
+    tribe = st.selectbox(
+        "Tribe / ethnic group",
+        ["yoruba", "igbo", "hausa", "tiv", "kanuri", "fulani", "other"],
+        help="Used for research labelling in this project.",
+    )
     upload = st.file_uploader(
-        "Fingerprint image",
+        "Choose fingerprint image",
         type=["png", "jpg", "jpeg", "bmp"],
         key="enroll",
+        help="Upload one clear fingerprint scan.",
     )
-    if st.button("Enroll person", type="primary") and upload is not None:
+
+    if upload is not None:
         image = read_upload(upload)
         if image is None:
-            st.error("Could not read that image. Try another PNG/JPG file.")
+            st.error("That file could not be read. Please try another PNG or JPG.")
         else:
-            enroll_person(person_id, tribe, image, model=model, device=device)
-            st.success(f"Enrolled **{person_id}** ({tribe})")
+            show_preview(image)
+            if st.button("Enroll this person", type="primary", use_container_width=True):
+                enroll_person(person_id, tribe, image, model=model, device=device)
+                st.success(
+                    f"Done. **{person_id}** ({tribe}) is enrolled. "
+                    "Go to the **Verify** tab to test matching."
+                )
+                st.balloons()
+    else:
+        st.info("Upload a fingerprint image to continue.")
 
 with tab_verify:
-    st.subheader("Verify / identify")
-    st.caption("Upload a probe print and match it against enrolled embeddings.")
-    threshold = st.slider("Similarity threshold", 0.50, 0.95, 0.75, 0.01)
+    st.markdown('<p class="step">Step 2 of 3</p>', unsafe_allow_html=True)
+    st.subheader("Verify identity")
+    st.write("Upload a fingerprint and check if it matches an enrolled person.")
+
+    threshold = st.slider(
+        "How strict should matching be?",
+        min_value=0.50,
+        max_value=0.95,
+        value=0.75,
+        step=0.01,
+        help="Higher = stricter. Start with 0.75 if unsure.",
+    )
     upload = st.file_uploader(
-        "Probe fingerprint",
+        "Choose probe fingerprint",
         type=["png", "jpg", "jpeg", "bmp"],
         key="verify",
     )
-    if st.button("Run verification", type="primary") and upload is not None:
+
+    if upload is not None:
         image = read_upload(upload)
         if image is None:
-            st.error("Could not read that image. Try another PNG/JPG file.")
+            st.error("That file could not be read. Please try another PNG or JPG.")
         else:
-            result = verify(image, threshold=threshold, model=model, device=device)
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Matched", "Yes" if result.get("matched") else "No")
-            m2.metric("Score", f"{float(result.get('score', 0)):.3f}")
-            m3.metric("Threshold", f"{threshold:.2f}")
-            if result.get("matched"):
-                st.success(
-                    f"Match: **{result['person_id']}** ({result['tribe']}) · "
-                    f"score={result['score']:.3f}"
+            show_preview(image, "Probe fingerprint")
+            if st.button("Verify now", type="primary", use_container_width=True):
+                result = verify(
+                    image, threshold=threshold, model=model, device=device
                 )
-            else:
-                st.warning("No match above threshold")
-            with st.expander("Raw result"):
-                st.json(result)
+                score = float(result.get("score", 0.0))
+                matched = bool(result.get("matched"))
+
+                c1, c2 = st.columns(2)
+                c1.metric("Result", "Match found" if matched else "No match")
+                c2.metric("Similarity score", f"{score:.3f}")
+
+                if matched:
+                    st.success(
+                        f"This print matches **{result['person_id']}** "
+                        f"({result['tribe']})."
+                    )
+                else:
+                    st.warning(
+                        "No enrolled person matched at this threshold. "
+                        "Try enrolling first, or lower the slider slightly."
+                    )
+                with st.expander("Technical details"):
+                    st.json(result)
+    else:
+        st.info("Upload a fingerprint image to verify.")
 
 with tab_pattern:
-    st.subheader("Arch / Loop / Whorl classifier")
-    st.caption("Requires a trained checkpoint from local training.")
+    st.markdown('<p class="step">Step 3 of 3</p>', unsafe_allow_html=True)
+    st.subheader("Classify fingerprint pattern")
+    st.write("Predict whether the print is an **arch**, **loop**, or **whorl**.")
+
     ckpt_path = MODELS_DIR / "fingerprint_cnn.pt"
     if not ckpt_path.exists():
-        st.info(
-            "Model checkpoint not found yet. Train locally with "
-            "`python -m src.train`, then redeploy with `models/fingerprint_cnn.pt`."
+        st.warning(
+            "The trained model is not on this server yet. "
+            "Pattern classification will work after local training and redeploy."
         )
+        st.code("python -m src.train --epochs 20", language="bash")
     else:
         upload = st.file_uploader(
-            "Fingerprint image",
+            "Choose fingerprint image",
             type=["png", "jpg", "jpeg", "bmp"],
             key="pattern",
         )
-        if upload is not None:
+        if upload is None:
+            st.info("Upload a fingerprint image to classify.")
+        else:
             image = read_upload(upload)
             if image is None:
-                st.error("Could not read that image. Try another PNG/JPG file.")
+                st.error("That file could not be read. Please try another PNG or JPG.")
             else:
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 enhanced = enhance_fingerprint(gray)
-                left, right = st.columns([1, 1.2])
+                left, right = st.columns(2)
                 with left:
                     st.image(
-                        enhanced,
-                        caption="Enhanced fingerprint",
-                        clamp=True,
+                        cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
+                        caption="Original",
                         use_container_width=True,
                     )
                 with right:
-                    tensor = (
-                        torch.from_numpy(cv2.resize(enhanced, (224, 224)))
-                        .float()
-                        .unsqueeze(0)
-                        .unsqueeze(0)
-                        / 255.0
-                    )
-                    with torch.no_grad():
-                        logits = model(tensor.to(device))
-                        probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
-                    pred = PATTERN_CLASSES[int(probs.argmax())]
-                    st.success(f"Predicted pattern: **{pred}**")
-                    st.write(
-                        {c: float(p) for c, p in zip(PATTERN_CLASSES, probs)}
+                    st.image(
+                        enhanced,
+                        caption="Enhanced",
+                        clamp=True,
+                        use_container_width=True,
                     )
 
-st.markdown("</div>", unsafe_allow_html=True)
+                tensor = (
+                    torch.from_numpy(cv2.resize(enhanced, (224, 224)))
+                    .float()
+                    .unsqueeze(0)
+                    .unsqueeze(0)
+                    / 255.0
+                )
+                with torch.no_grad():
+                    logits = model(tensor.to(device))
+                    probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
+                pred = PATTERN_CLASSES[int(probs.argmax())]
+                confidence = float(probs.max())
+
+                st.success(
+                    f"Predicted pattern: **{pred}** "
+                    f"(confidence {confidence:.0%})"
+                )
+                st.write("Class probabilities")
+                st.bar_chart(
+                    {c: float(p) for c, p in zip(PATTERN_CLASSES, probs)}
+                )
 
 st.markdown(
     f"""
 <div class="app-footer">
-  <div class="footer-title">{UNIVERSITY} · {FACULTY}</div>
-  <p class="footer-line">{COURSE_CODE}: {COURSE_TITLE}</p>
-  <p class="footer-line">Project demo · {PROJECT_TITLE}</p>
-  <p class="names">Developed by {STUDENT_1} &amp; {STUDENT_2}</p>
-  <p class="footer-line">M.Sc. Artificial Intelligence · Academic prototype (not for operational security use)</p>
+  {UNIVERSITY}<br>
+  {FACULTY}<br>
+  {COURSE_CODE}: {COURSE_TITLE}<br>
+  <div class="names">Developed by {STUDENT_1} and {STUDENT_2}</div>
+  Academic prototype for coursework. Not for operational security systems.
 </div>
 """,
     unsafe_allow_html=True,
